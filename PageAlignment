@@ -1,0 +1,74 @@
+using System;
+using Autodesk.AutoCAD.Runtime;
+using Autodesk.AutoCAD.ApplicationServices;
+using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.EditorInput;
+using Autodesk.AutoCAD.Geometry;
+
+    /*
+        This script auto-aligns dwg output from Solidworks Electrical to AutoCAD.
+        Specific to use in Thales Ottawa
+
+        Isaac Ang, 24APR20
+    */
+[assembly: CommandClass(typeof(AutoCAD.Program))]
+namespace AutoCAD
+{
+    public class Program
+    {
+        [CommandMethod("MoveBlock")]
+        public static void MoveBlock()
+        {
+            Document akDoc = Application.DocumentManager.MdiActiveDocument;
+            Database akDb = akDoc.Database;
+            Editor akDocEd = akDoc.Editor;
+
+            using (Transaction akTr = akDb.TransactionManager.StartTransaction())
+            {
+                BlockTable akBlkTbl;
+                akBlkTbl = akTr.GetObject(akDb.BlockTableId, OpenMode.ForRead) as BlockTable;
+                BlockTableRecord akBlkTblRec;
+                //akBlkTblRec = akTr.GetObject(akBlkTbl[BlockTableRecord.ModelSpace], OpenMode.ForWrite) as BlockTableRecord;
+                akBlkTblRec = akTr.GetObject(akBlkTbl[BlockTableRecord.PaperSpace], OpenMode.ForWrite) as BlockTableRecord;
+                
+                Point3d akPt3d = new Point3d(0, 0, 0);
+                Vector3d akVec3d = akPt3d.GetVectorTo(new Point3d(6.8, 6.4, 0));
+
+                //SELECT ALL -- HOW TO IMPLEMENT COMMAND TO SELECT ALL TO ENTITY akSSPrompt? 
+                    //_ai_selall
+                    //akDoc.SendStringToExecute("._ai_selall ", true, false, false);
+                    //akDoc.SendStringToExecute("._ai ", true, false, false);
+                    //PromptSelectionResult akSSPrompt = akDoc.Editor.GetSelection();
+
+                //Create crossing window from (0,0,0) to (862,558,0) -- crosswindow of ANSI D
+                PromptSelectionResult akSSPrompt;
+                akSSPrompt = akDocEd.SelectCrossingWindow(new Point3d(0,0,0), new Point3d(862,558,0));
+                //If prompt is OK, objects were selected
+                if (akSSPrompt.Status == PromptStatus.OK)
+                {
+                    SelectionSet akSSet = akSSPrompt.Value;
+
+                    //step through the objects in the selection set
+                    foreach (SelectedObject akSSObj in akSSet)
+                    {
+                        //check to make sure a valid selectedobject object was returned
+                        if (akSSObj != null)
+                        {
+                            //open the selected object for write
+                            Entity akEnt = akTr.GetObject(akSSObj.ObjectId, OpenMode.ForWrite) as Entity;
+
+                            if (akEnt != null)
+                            {
+                                //VECTOR MOVE THE SLECTED OBJECTS??
+                                akEnt.TransformBy(Matrix3d.Displacement(akVec3d));
+                            }
+                        }
+                    }
+                }
+                akDoc.SendStringToExecute("._zoom all ", true, false, false);  
+                akTr.Commit();
+            } 
+            
+        }
+    }
+}
